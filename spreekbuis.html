@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#e84300">
+  <title>Spreekbuis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fugaz+One&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #header {
+      flex-shrink: 0;
+      background-color: #e84300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+    }
+
+    #header h1 {
+      font-family: 'Fugaz One', sans-serif;
+      font-style: italic;
+      font-size: 2rem;
+      color: white;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    #cloud {
+      flex: 1;
+      background-color: #FFC148;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: center;
+      justify-content: center;
+      align-items: center;
+      gap: 10px 18px;
+      padding: 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .word {
+      color: black;
+      font-family: sans-serif;
+      font-weight: bold;
+      display: inline-block;
+      transition: font-size 0.6s ease;
+      line-height: 1.1;
+    }
+
+    @keyframes wordPulse {
+      0%   { transform: scale(1);   }
+      50%  { transform: scale(1.5); }
+      100% { transform: scale(1);   }
+    }
+
+    .word.pulsing {
+      animation: wordPulse 0.35s ease-in-out 3;
+    }
+
+    #warning {
+      position: fixed;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      color: black;
+      font-family: sans-serif;
+      font-size: 1rem;
+      pointer-events: none;
+      padding: 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="header"><h1>Spreekbuis</h1></div>
+  <div id="cloud"></div>
+  <div id="warning"></div>
+
+  <script>
+    var STOPWORDS = [
+      'aan','af','al','als','ben','bij','dat','de','die','dit','door','dus',
+      'een','en','er','even','geen','gewoon','haar','had','heb','heeft','hem',
+      'hen','het','hier','hoe','hun','ik','in','is','ja','je','jij','jullie',
+      'kan','maar','me','mee','met','mij','mijn','nee','niet','nog','nu','of',
+      'om','ons','ook','op','over','se','toch','te','tot','uit','van','via',
+      'voor','want','was','wat','we','wel','werd','wie','wij','worden','wordt',
+      'ze','zich','zij','zijn','zo','zou','zelf','dan','naar','per','hun','iets',
+      'alles','echt','heel','daar','u','uw','had','hebben','dit','als','want'
+    ];
+
+    var MAX_WORDS = 25;
+    var MIN_SIZE  = 13; // px
+    var MAX_SIZE  = 58; // px
+
+    var wordCounts  = {};
+    var wordOrder   = []; // insertion order for tie-breaking
+    var listening   = false;
+    var recognition = null;
+
+    var cloud   = document.getElementById('cloud');
+    var warning = document.getElementById('warning');
+
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      warning.textContent = 'Web Speech API niet ondersteund. Gebruik Chrome of Vivaldi.';
+    }
+
+    document.addEventListener('click', function() {
+      if (!listening) startListening();
+      else stopListening();
+    });
+
+    function startListening() {
+      listening = true;
+      warning.textContent = '';
+
+      if (!SR) {
+        warning.textContent = 'Web Speech API niet ondersteund.';
+        return;
+      }
+
+      recognition = new SR();
+      recognition.lang           = 'nl-NL';
+      recognition.continuous     = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = function(event) {
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            processText(event.results[i][0].transcript);
+          }
+        }
+      };
+
+      recognition.onerror = function(e) {
+        if (e.error !== 'no-speech') warning.textContent = 'Fout: ' + e.error;
+      };
+
+      recognition.onend = function() {
+        if (listening) recognition.start();
+      };
+
+      recognition.start();
+    }
+
+    function stopListening() {
+      listening = false;
+      if (recognition) { recognition.stop(); recognition = null; }
+    }
+
+    function processText(text) {
+      var words = text.toLowerCase()
+        .replace(/[^a-záéíóúàèìòùäëïöü\s]/g, '')
+        .split(/\s+/)
+        .filter(function(w) {
+          return w.length >= 3 && STOPWORDS.indexOf(w) === -1;
+        });
+
+      words.forEach(function(word) {
+        if (word) addWord(word);
+      });
+    }
+
+    function addWord(word) {
+      var isNew = !wordCounts[word];
+
+      if (isNew) {
+        wordOrder.push(word);
+        wordCounts[word] = 0;
+      }
+
+      wordCounts[word]++;
+
+      // Als er meer dan MAX_WORDS unieke woorden zijn:
+      // verwijder het woord met de laagste score (bij gelijkstand: het oudste)
+      var keys = Object.keys(wordCounts);
+      if (keys.length > MAX_WORDS) {
+        var victim = wordOrder[0]; // oudste als standaard
+        for (var i = 0; i < wordOrder.length; i++) {
+          var w = wordOrder[i];
+          if (w !== word && wordCounts[w] <= wordCounts[victim]) {
+            victim = w;
+          }
+        }
+        // verwijder slachtoffer
+        delete wordCounts[victim];
+        wordOrder.splice(wordOrder.indexOf(victim), 1);
+        var el = document.querySelector('[data-word="' + victim + '"]');
+        if (el) cloud.removeChild(el);
+      }
+
+      renderWord(word, isNew);
+    }
+
+    function renderWord(pulseWord, isNew) {
+      var counts  = Object.keys(wordCounts).map(function(w) { return wordCounts[w]; });
+      var minC    = Math.min.apply(null, counts);
+      var maxC    = Math.max.apply(null, counts);
+
+      // Maak of update het element van het woord
+      var el = document.querySelector('[data-word="' + pulseWord + '"]');
+      if (!el) {
+        el = document.createElement('span');
+        el.className = 'word';
+        el.setAttribute('data-word', pulseWord);
+        el.textContent = pulseWord;
+        cloud.appendChild(el);
+      }
+
+      // Pas lettergrootte aan op basis van frequentie
+      var count    = wordCounts[pulseWord];
+      var fontSize = minC === maxC
+        ? (MIN_SIZE + MAX_SIZE) / 2
+        : MIN_SIZE + (count - minC) / (maxC - minC) * (MAX_SIZE - MIN_SIZE);
+      el.style.fontSize = Math.round(fontSize) + 'px';
+
+      // Update ook de grootte van alle andere woorden
+      Object.keys(wordCounts).forEach(function(w) {
+        if (w === pulseWord) return;
+        var wEl = document.querySelector('[data-word="' + w + '"]');
+        if (!wEl) return;
+        var wSize = minC === maxC
+          ? (MIN_SIZE + MAX_SIZE) / 2
+          : MIN_SIZE + (wordCounts[w] - minC) / (maxC - minC) * (MAX_SIZE - MIN_SIZE);
+        wEl.style.fontSize = Math.round(wSize) + 'px';
+      });
+
+      // Puls het woord 3 keer
+      el.classList.remove('pulsing');
+      void el.offsetWidth; // herstart animatie
+      el.classList.add('pulsing');
+      el.addEventListener('animationend', function() {
+        el.classList.remove('pulsing');
+      }, { once: true });
+    }
+  </script>
+</body>
+</html>
