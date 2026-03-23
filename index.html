@@ -169,8 +169,8 @@
 
       recognition = new SR();
       recognition.lang           = 'nl-NL';
-      recognition.continuous     = true;
-      recognition.interimResults = true;
+      recognition.continuous     = false;
+      recognition.interimResults = false;
 
       recognition.onresult = function(event) {
         var now = Date.now();
