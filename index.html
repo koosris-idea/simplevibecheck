@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#e84300">
+  <title>SimpleVibeCheck</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fugaz+One&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #header {
+      flex-shrink: 0;
+      background-color: #e84300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+    }
+
+    #header h1 {
+      font-family: 'Fugaz One', sans-serif;
+      font-style: italic;
+      font-size: 2rem;
+      color: white;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    #topDiv {
+      flex: 2;
+      background-color: #4caf50;
+      transition: background-color 1.5s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    @keyframes pulse {
+      0%   { filter: brightness(1.0); }
+      50%  { filter: brightness(1.1); }
+      100% { filter: brightness(0.9); }
+    }
+
+    #topDiv.listening {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    #bottomDiv {
+      flex: 1;
+      background-color: #4caf50;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    .bar {
+      flex-shrink: 0;
+      width: calc(100vw / 20);
+      height: 100%;
+    }
+
+    #warning {
+      position: fixed;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: sans-serif;
+      font-size: 1rem;
+      pointer-events: none;
+      padding: 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="header"><h1>SimpleVibeCheck</h1></div>
+  <div id="topDiv"></div>
+  <div id="bottomDiv"></div>
+  <div id="warning"></div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+
+    const COLORS = {
+      '-3': '#444444',
+      '-2': '#888888',
+      '-1': '#c8c8c8',
+       '0': '#4caf50',
+       '1': '#ff8a80',
+       '2': '#e53935',
+       '3': '#8b0000'
+    };
+
+    const RED_WORDS = [
+      'fascist', 'fascisten', 'hufter', 'hufters',
+      'gek', 'idioot', 'idioten', 'leugenaar', 'leugenaars',
+      'racist', 'racisten', 'opruier', 'opruiers'
+    ];
+    const GREY_WORDS = [
+      'saai', 'zinloos', 'gedoe', 'onzin',
+      'maakt niet uit', 'boeit me niet'
+    ];
+
+    const BASELINE_DURATION = 30000;
+    const WINDOW_DURATION   = 12000;
+    const INTERVAL          =  3000;
+    const MAX_BARS          = 20;
+
+    let listening       = false;
+    let recognition     = null;
+    let audioContext    = null;
+    let analyser        = null;
+    let micStream       = null;
+    let intervalId      = null;
+    let transcriptLog   = [];
+    let volumeLog       = [];
+    let baselineRms     = null;
+    let baselineStart   = null;
+    let baselineSamples = [];
+    let startTime       = null;
+
+    var topDiv    = document.getElementById('topDiv');
+    var bottomDiv = document.getElementById('bottomDiv');
+    var warning   = document.getElementById('warning');
+
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      warning.textContent = 'Web Speech API niet ondersteund. Gebruik Chrome of Edge.';
+    }
+
+    document.addEventListener('click', function() {
+      if (!listening) startListening();
+      else stopListening();
+    });
+
+    function startListening() {
+      listening       = true;
+      transcriptLog   = [];
+      volumeLog       = [];
+      baselineRms     = null;
+      baselineStart   = Date.now();
+      baselineSamples = [];
+      startTime       = Date.now();
+      warning.textContent = '';
+      bottomDiv.innerHTML = '';
+      topDiv.style.backgroundColor = COLORS['0'];
+      topDiv.classList.add('listening');
+
+      if (!SR) {
+        warning.textContent = 'Web Speech API niet ondersteund. Gebruik Chrome of Edge.';
+        return;
+      }
+
+      recognition = new SR();
+      recognition.lang           = 'nl-NL';
+      recognition.continuous     = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = function(event) {
+        var now = Date.now();
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          var text = event.results[i][0].transcript.toLowerCase();
+          transcriptLog.push({ text: text, time: now });
+        }
+      };
+
+      recognition.onerror = function(e) {
+        if (e.error !== 'no-speech') warning.textContent = 'Fout: ' + e.error;
+      };
+
+      recognition.onend = function() {
+        if (listening) recognition.start();
+      };
+
+      recognition.start();
+
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) {
+          micStream    = stream;
+          audioContext = new AudioContext();
+          analyser     = audioContext.createAnalyser();
+          analyser.fftSize = 256;
+          var source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          sampleVolume();
+        })
+        .catch(function() {
+          warning.textContent = 'Microfoon geweigerd — volume niet meegewogen.';
+        });
+
+      intervalId = setInterval(recalculate, INTERVAL);
+    }
+
+    function stopListening() {
+      listening = false;
+      topDiv.classList.remove('listening');
+      if (recognition)  { recognition.stop(); recognition = null; }
+      if (micStream)    { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
+      if (audioContext) { audioContext.close(); audioContext = null; }
+      if (intervalId)   { clearInterval(intervalId); intervalId = null; }
+      topDiv.style.backgroundColor = COLORS['0'];
+    }
+
+    function sampleVolume() {
+      if (!listening || !analyser) return;
+      var data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteTimeDomainData(data);
+      var sum = 0;
+      for (var i = 0; i < data.length; i++) {
+        var v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      var rms = Math.sqrt(sum / data.length);
+      var now = Date.now();
+      if (now - baselineStart < BASELINE_DURATION) {
+        baselineSamples.push(rms);
+      } else if (baselineRms === null && baselineSamples.length > 0) {
+        baselineRms = baselineSamples.reduce(function(a, b) { return a + b; }, 0) / baselineSamples.length;
+      }
+      volumeLog.push({ rms: rms, time: now });
+      requestAnimationFrame(sampleVolume);
+    }
+
+    function recalculate() {
+      var now    = Date.now();
+      var cutoff = now - WINDOW_DURATION;
+
+      transcriptLog = transcriptLog.filter(function(e) { return e.time >= cutoff; });
+      volumeLog     = volumeLog.filter(function(e) { return e.time >= cutoff; });
+
+      if (now - startTime < WINDOW_DURATION) return;
+
+      var allText = transcriptLog.map(function(e) { return e.text; }).join(' ');
+      var wordScore = 0;
+      RED_WORDS.forEach(function(w)  { if (allText.indexOf(w) !== -1) wordScore++; });
+      GREY_WORDS.forEach(function(w) { if (allText.indexOf(w) !== -1) wordScore--; });
+
+      var volumeScore = 0;
+      if (baselineRms !== null && volumeLog.length > 0) {
+        var avgRms = volumeLog.reduce(function(a, b) { return a + b.rms; }, 0) / volumeLog.length;
+        if (avgRms > baselineRms * 1.5) volumeScore =  1;
+        else if (avgRms < baselineRms * 0.5) volumeScore = -1;
+      }
+
+      var total = Math.max(-3, Math.min(3, wordScore + volumeScore));
+      topDiv.style.backgroundColor = COLORS[String(total)];
+      addBar(total);
+    }
+
+    function addBar(score) {
+      var bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.backgroundColor = COLORS[String(score)];
+      bottomDiv.insertBefore(bar, bottomDiv.firstChild);
+      if (bottomDiv.children.length > MAX_BARS) {
+        bottomDiv.removeChild(bottomDiv.lastChild);
+      }
+    }
+  </script>
+</body>
+</html>
