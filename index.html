@@ -94,7 +94,9 @@
 
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      });
     }
 
     const COLORS = {
@@ -169,8 +171,8 @@
 
       recognition = new SR();
       recognition.lang           = 'nl-NL';
-      recognition.continuous     = false;
-      recognition.interimResults = false;
+      recognition.continuous     = true;
+      recognition.interimResults = true;
 
       recognition.onresult = function(event) {
         var now = Date.now();
