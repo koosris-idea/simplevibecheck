@@ -157,6 +157,7 @@
     var intervalId          = null;
     var intervalTranscripts = [];
     var baseScore           = 0;
+    var interimProcessed    = false; // voorkom dubbeltelling interim → final
 
     var topDiv    = document.getElementById('topDiv');
     var bottomDiv = document.getElementById('bottomDiv');
@@ -176,6 +177,7 @@
       listening           = true;
       intervalTranscripts = [];
       baseScore           = 0;
+      interimProcessed    = false;
       warning.textContent = '';
       bottomDiv.innerHTML = '';
       topDiv.style.backgroundColor = COLORS['0'];
@@ -193,9 +195,28 @@
 
       recognition.onresult = function(event) {
         for (var i = event.resultIndex; i < event.results.length; i++) {
+          var text = event.results[i][0].transcript.toLowerCase();
           if (event.results[i].isFinal) {
-            var text = event.results[i][0].transcript.toLowerCase();
-            intervalTranscripts.push(text);
+            // Alleen toevoegen als interim dit niet al verwerkte
+            if (!interimProcessed) intervalTranscripts.push(text);
+            interimProcessed = false;
+          } else {
+            // Interim: direct reageren op keywords
+            if (!interimProcessed) {
+              var rc = 0, gc = 0;
+              RED_WORDS.forEach(function(w)  { if (text.indexOf(w) !== -1) rc++; });
+              GREY_WORDS.forEach(function(w) { if (text.indexOf(w) !== -1) gc++; });
+              if (rc > 0 || gc > 0) {
+                interimProcessed = true;
+                baseScore += (rc - gc);
+                baseScore = Math.max(-3, Math.min(3, baseScore));
+                topDiv.style.backgroundColor = COLORS[String(baseScore)];
+                addBar(baseScore);
+                // Reset interval zodat decay niet te snel volgt
+                clearInterval(intervalId);
+                intervalId = setInterval(recalculate, INTERVAL);
+              }
+            }
           }
         }
       };
