@@ -283,9 +283,6 @@
       };
 
       recognition.start();
-
-      // Voer analyzeTranscript() uit om de 2 seconden
-      aiIntervalId = setInterval(analyzeTranscript, 2000);
     }
 
     function stopListening() {
@@ -299,24 +296,9 @@
       renderCol(document.getElementById('col-actiepunten'), insights.actiepunten);
       renderCol(document.getElementById('col-wensen'),      insights.wensen);
       renderCol(document.getElementById('col-oplossingen'), insights.oplossingen);
-      updateTimestamp();
     }
 
-    function updateTimestamp() {
-      var el = document.getElementById('ai-updated');
-      if (!el) return;
-      if (!lastUpdated) {
-        el.textContent = '';
-      } else {
-        var date = new Date(lastUpdated);
-        var hours = String(date.getHours()).padStart(2, '0');
-        var mins = String(date.getMinutes()).padStart(2, '0');
-        var secs = String(date.getSeconds()).padStart(2, '0');
-        el.textContent = hours + ':' + mins + ':' + secs;
-      }
-    }
-
-    function renderCol(el, items) {
+function renderCol(el, items) {
       if (!el) return;
       el.innerHTML = '';
       items.forEach(function(item) {
