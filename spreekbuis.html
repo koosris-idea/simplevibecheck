@@ -283,6 +283,8 @@
       };
 
       recognition.start();
+      if (aiIntervalId)  { clearInterval(aiIntervalId);  aiIntervalId  = null; }
+      if (updatedTimerId){ clearInterval(updatedTimerId); updatedTimerId = null; }
       aiIntervalId = setInterval(analyzeTranscript, 30000);
       startUpdatedTimer();
     }
