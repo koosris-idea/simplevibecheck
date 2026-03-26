@@ -283,6 +283,8 @@
       };
 
       recognition.start();
+      aiIntervalId = setInterval(analyzeTranscript, 30000);
+      startUpdatedTimer();
     }
 
     function stopListening() {
@@ -354,6 +356,16 @@
         renderInsights();
       })
       .catch(function() { /* stille fallback — vorige inzichten blijven staan */ });
+    }
+
+    function startUpdatedTimer() {
+      updatedTimerId = setInterval(function() {
+        var el = document.getElementById('ai-updated');
+        if (!el) return;
+        if (lastUpdated === null) { el.textContent = ''; return; }
+        var secs = Math.round((Date.now() - lastUpdated) / 1000);
+        el.textContent = 'bijgewerkt ' + secs + 's geleden';
+      }, 1000);
     }
 
     function processText(text) {
