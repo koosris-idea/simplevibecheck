@@ -288,6 +288,24 @@
     function stopListening() {
       listening = false;
       if (recognition) { recognition.stop(); recognition = null; }
+      if (aiIntervalId)  { clearInterval(aiIntervalId);  aiIntervalId  = null; }
+      if (updatedTimerId){ clearInterval(updatedTimerId); updatedTimerId = null; }
+    }
+
+    function renderInsights() {
+      renderCol(document.getElementById('col-actiepunten'), insights.actiepunten);
+      renderCol(document.getElementById('col-wensen'),      insights.wensen);
+      renderCol(document.getElementById('col-oplossingen'), insights.oplossingen);
+    }
+
+    function renderCol(el, items) {
+      el.innerHTML = '';
+      items.forEach(function(item) {
+        var div = document.createElement('div');
+        div.className = 'ai-item';
+        div.textContent = item;
+        el.appendChild(div);
+      });
     }
 
     function processText(text) {
