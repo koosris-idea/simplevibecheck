@@ -299,6 +299,7 @@
     }
 
     function renderCol(el, items) {
+      if (!el) return;
       el.innerHTML = '';
       items.forEach(function(item) {
         var div = document.createElement('div');
