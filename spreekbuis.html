@@ -226,6 +226,15 @@
     var listening   = false;
     var recognition = null;
 
+    // AI-inzichten state
+    var CLAUDE_API_KEY      = 'JOUW_API_SLEUTEL_HIER';
+    var fullTranscript      = '';
+    var lastAnalyzedLength  = 0;
+    var insights            = { actiepunten: [], wensen: [], oplossingen: [] };
+    var aiIntervalId        = null;
+    var lastUpdated         = null;
+    var updatedTimerId      = null;
+
     var cloud   = document.getElementById('cloud');
     var warning = document.getElementById('warning');
 
@@ -242,6 +251,10 @@
     function startListening() {
       listening = true;
       warning.textContent = '';
+      fullTranscript = '';
+      lastAnalyzedLength = 0;
+      lastUpdated = null;
+      insights = { actiepunten: [], wensen: [], oplossingen: [] };
 
       if (!SR) {
         warning.textContent = 'Web Speech API niet ondersteund.';
@@ -278,6 +291,7 @@
     }
 
     function processText(text) {
+      fullTranscript += ' ' + text;
       var words = text.toLowerCase()
         .replace(/[^a-záéíóúàèìòùäëïöü\s]/g, '')
         .split(/\s+/)
