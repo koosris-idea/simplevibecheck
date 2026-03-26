@@ -283,6 +283,9 @@
       };
 
       recognition.start();
+
+      // Voer analyzeTranscript() uit om de 2 seconden
+      aiIntervalId = setInterval(analyzeTranscript, 2000);
     }
 
     function stopListening() {
@@ -296,6 +299,21 @@
       renderCol(document.getElementById('col-actiepunten'), insights.actiepunten);
       renderCol(document.getElementById('col-wensen'),      insights.wensen);
       renderCol(document.getElementById('col-oplossingen'), insights.oplossingen);
+      updateTimestamp();
+    }
+
+    function updateTimestamp() {
+      var el = document.getElementById('ai-updated');
+      if (!el) return;
+      if (!lastUpdated) {
+        el.textContent = '';
+      } else {
+        var date = new Date(lastUpdated);
+        var hours = String(date.getHours()).padStart(2, '0');
+        var mins = String(date.getMinutes()).padStart(2, '0');
+        var secs = String(date.getSeconds()).padStart(2, '0');
+        el.textContent = hours + ':' + mins + ':' + secs;
+      }
     }
 
     function renderCol(el, items) {
@@ -307,6 +325,53 @@
         div.textContent = item;
         el.appendChild(div);
       });
+    }
+
+    function analyzeTranscript() {
+      var text = fullTranscript.trim();
+      if (text.length < 30 || text.length === lastAnalyzedLength) return;
+      lastAnalyzedLength = text.length;
+
+      var prompt = 'Je analyseert een transcriptie van een buurtgesprek.\n\n'
+        + 'Huidig transcript:\n' + text + '\n\n'
+        + 'Bestaande inzichten (voorkom duplicaten):\n' + JSON.stringify(insights) + '\n\n'
+        + 'Geef een VOLLEDIGE bijgewerkte JSON terug met alle inzichten (oud + nieuw, duplicaten samengevoegd):\n'
+        + '{"actiepunten":["..."],"wensen":["..."],"oplossingen":["..."]}\n\n'
+        + 'Regels:\n'
+        + '- Alleen wat écht gezegd is in het transcript\n'
+        + '- Maximaal 8 items per categorie\n'
+        + '- Nederlands, beknopt (max 6 woorden per item)\n'
+        + '- Geen duplicaten of herformuleringen van hetzelfde punt\n'
+        + '- Geef alleen de JSON terug, geen uitleg';
+
+      fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-client': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 512,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var responseText = data.content && data.content[0] && data.content[0].text;
+        if (!responseText) return;
+        var match = responseText.match(/\{[\s\S]*\}/);
+        if (!match) return;
+        var parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed.actiepunten)) insights.actiepunten = parsed.actiepunten;
+        if (Array.isArray(parsed.wensen))      insights.wensen      = parsed.wensen;
+        if (Array.isArray(parsed.oplossingen)) insights.oplossingen = parsed.oplossingen;
+        lastUpdated = Date.now();
+        renderInsights();
+      })
+      .catch(function() { /* stille fallback — vorige inzichten blijven staan */ });
     }
 
     function processText(text) {
