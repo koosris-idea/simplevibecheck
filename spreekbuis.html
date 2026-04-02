@@ -249,6 +249,7 @@
   </div>
 
   <div id="warning"></div>
+  <div id="debuglog" style="position:fixed;bottom:70px;left:0;right:0;max-height:120px;overflow-y:auto;background:rgba(0,0,0,0.8);color:#0f0;font-size:0.6rem;font-family:monospace;padding:4px 8px;z-index:998;display:none;"></div>
 
   <nav id="bottomnav" onclick="event.stopPropagation()">
     <a href="index.html" title="Home">
@@ -297,6 +298,17 @@
 
     var cloud   = document.getElementById('cloud');
     var warning = document.getElementById('warning');
+
+    // Debug logger
+    var debugEl = document.getElementById('debuglog');
+    debugEl.style.display = 'block';
+    function dbg(msg) {
+      var line = document.createElement('div');
+      line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+      debugEl.appendChild(line);
+      debugEl.scrollTop = debugEl.scrollHeight;
+      console.log(msg);
+    }
 
     // API-sleutel overlay
     var overlay  = document.getElementById('api-overlay');
@@ -365,6 +377,7 @@
       recognition.start();
       if (aiIntervalId)  { clearInterval(aiIntervalId);  aiIntervalId  = null; }
       if (updatedTimerId){ clearInterval(updatedTimerId); updatedTimerId = null; }
+      dbg('interval gestart');
       aiIntervalId = setInterval(analyzeTranscript, 30000);
       startUpdatedTimer();
     }
@@ -395,8 +408,8 @@
 
     function analyzeTranscript() {
       var text = fullTranscript.trim();
-      console.log('analyzeTranscript aangeroepen, tekstlengte:', text.length, 'lastAnalyzed:', lastAnalyzedLength);
-      if (text.length < 30 || text.length === lastAnalyzedLength) { console.log('Overgeslagen'); return; }
+      dbg('analyze: len=' + text.length + ' last=' + lastAnalyzedLength);
+      if (text.length < 30 || text.length === lastAnalyzedLength) { dbg('overgeslagen'); return; }
       lastAnalyzedLength = text.length;
 
       var prompt = 'Je analyseert een transcriptie van een buurtgesprek.\n\n'
@@ -427,9 +440,9 @@
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
-        console.log('AI response:', JSON.stringify(data));
+        dbg('AI resp: ' + JSON.stringify(data).substring(0, 100));
         var responseText = data.content && data.content[0] && data.content[0].text;
-        if (!responseText) { console.log('Geen responseText, data:', JSON.stringify(data)); return; }
+        if (!responseText) { dbg('geen text in response'); return; }
         var match = responseText.match(/\{[\s\S]*\}/);
         if (!match) return;
         var parsed = JSON.parse(match[0]);
@@ -439,7 +452,7 @@
         lastUpdated = Date.now();
         renderInsights();
       })
-      .catch(function(err) { console.error('AI fout:', err); warning.textContent = 'AI fout: ' + err; setTimeout(function(){ warning.textContent=''; }, 5000); });
+      .catch(function(err) { dbg('fetch fout: ' + err); warning.textContent = 'AI fout: ' + err; setTimeout(function(){ warning.textContent=''; }, 5000); });
     }
 
     function startUpdatedTimer() {
