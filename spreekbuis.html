@@ -395,7 +395,8 @@
 
     function analyzeTranscript() {
       var text = fullTranscript.trim();
-      if (text.length < 30 || text.length === lastAnalyzedLength) return;
+      console.log('analyzeTranscript aangeroepen, tekstlengte:', text.length, 'lastAnalyzed:', lastAnalyzedLength);
+      if (text.length < 30 || text.length === lastAnalyzedLength) { console.log('Overgeslagen'); return; }
       lastAnalyzedLength = text.length;
 
       var prompt = 'Je analyseert een transcriptie van een buurtgesprek.\n\n'
@@ -426,8 +427,9 @@
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
+        console.log('AI response:', JSON.stringify(data));
         var responseText = data.content && data.content[0] && data.content[0].text;
-        if (!responseText) return;
+        if (!responseText) { console.log('Geen responseText, data:', JSON.stringify(data)); return; }
         var match = responseText.match(/\{[\s\S]*\}/);
         if (!match) return;
         var parsed = JSON.parse(match[0]);
