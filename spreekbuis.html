@@ -424,13 +424,10 @@
         + '- Geen duplicaten of herformuleringen van hetzelfde punt\n'
         + '- Geef alleen de JSON terug, geen uitleg';
 
-      fetch('https://api.anthropic.com/v1/messages', {
+      fetch('https://spreekbuis-proxy.koos-4a1.workers.dev', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-client': 'true'
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
