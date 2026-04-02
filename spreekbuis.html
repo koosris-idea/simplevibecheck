@@ -437,7 +437,7 @@
         lastUpdated = Date.now();
         renderInsights();
       })
-      .catch(function() { /* stille fallback — vorige inzichten blijven staan */ });
+      .catch(function(err) { console.error('AI fout:', err); warning.textContent = 'AI fout: ' + err; setTimeout(function(){ warning.textContent=''; }, 5000); });
     }
 
     function startUpdatedTimer() {
