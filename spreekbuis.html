@@ -161,9 +161,69 @@
     }
     #bottomnav a.active { color: #FFC148; }
     #bottomnav svg { width: 26px; height: 26px; fill: currentColor; }
+
+    #api-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    #api-overlay.hidden { display: none; }
+    #api-box {
+      background: white;
+      border-radius: 12px;
+      padding: 24px 20px;
+      width: 90%;
+      max-width: 360px;
+      font-family: 'Nunito', sans-serif;
+    }
+    #api-box h2 {
+      font-size: 1rem;
+      color: #e84300;
+      margin-bottom: 8px;
+    }
+    #api-box p {
+      font-size: 0.75rem;
+      color: #555;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    #api-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: 'Nunito', sans-serif;
+      margin-bottom: 12px;
+    }
+    #api-save {
+      width: 100%;
+      background: #e84300;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
+  <div id="api-overlay">
+    <div id="api-box">
+      <h2>API-sleutel invoeren</h2>
+      <p>Voer je Anthropic API-sleutel in. Die wordt alleen lokaal in je browser opgeslagen en nooit gedeeld.</p>
+      <input id="api-input" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
+      <button id="api-save">Opslaan en doorgaan</button>
+    </div>
+  </div>
+
   <div id="header"><h1>Spreekbuis</h1></div>
   <div id="cloud"></div>
 
@@ -227,7 +287,7 @@
     var recognition = null;
 
     // AI-inzichten state
-    var CLAUDE_API_KEY      = 'JOUW_API_SLEUTEL_HIER';
+    var CLAUDE_API_KEY      = localStorage.getItem('claude_api_key') || '';
     var fullTranscript      = '';
     var lastAnalyzedLength  = 0;
     var insights            = { actiepunten: [], wensen: [], oplossingen: [] };
@@ -238,12 +298,32 @@
     var cloud   = document.getElementById('cloud');
     var warning = document.getElementById('warning');
 
+    // API-sleutel overlay
+    var overlay  = document.getElementById('api-overlay');
+    var apiInput = document.getElementById('api-input');
+    var apiSave  = document.getElementById('api-save');
+
+    if (CLAUDE_API_KEY) {
+      overlay.classList.add('hidden');
+    }
+
+    apiSave.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var key = apiInput.value.trim();
+      if (key) {
+        localStorage.setItem('claude_api_key', key);
+        CLAUDE_API_KEY = key;
+        overlay.classList.add('hidden');
+      }
+    });
+
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       warning.textContent = 'Web Speech API niet ondersteund. Gebruik Chrome of Vivaldi.';
     }
 
     document.addEventListener('click', function() {
+      if (overlay && !overlay.classList.contains('hidden')) return;
       if (!listening) startListening();
       else stopListening();
     });
