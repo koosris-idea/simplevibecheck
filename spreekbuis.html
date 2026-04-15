@@ -37,16 +37,25 @@
       text-transform: uppercase;
     }
 
-    #cloud {
-      flex: 2;
+    /* Drie gelijke secties */
+    #section-cloud,
+    #section-vibe,
+    #section-ai {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sectie 1: Woordwolk */
+    #section-cloud {
       background-color: #FFC148;
       display: flex;
       flex-wrap: wrap;
       align-content: center;
       justify-content: center;
       align-items: center;
-      gap: 10px 18px;
-      padding: 24px;
+      gap: 8px 16px;
+      padding: 16px;
       cursor: pointer;
       user-select: none;
     }
@@ -70,13 +79,50 @@
       animation: wordPulse 0.35s ease-in-out 3;
     }
 
-    #ai-panel {
+    /* Sectie 2: VibeCheck */
+    #section-vibe {
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+    }
+
+    #vibe-main {
+      flex: 2;
+      background-color: #4caf50;
+      transition: background-color 1.5s ease;
+    }
+
+    @keyframes pulse {
+      0%   { filter: brightness(1.0); }
+      50%  { filter: brightness(1.1); }
+      100% { filter: brightness(0.9); }
+    }
+
+    #vibe-main.listening {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    #vibe-bars {
       flex: 1;
+      background-color: #4caf50;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    .bar {
+      flex-shrink: 0;
+      width: calc(100vw / 20);
+      height: 100%;
+    }
+
+    /* Sectie 3: AI inzichten */
+    #section-ai {
       background: #ffffff;
       border-top: 2px solid #e84300;
       padding: 8px 10px;
       overflow-y: auto;
-      flex-shrink: 0;
     }
 
     #ai-header {
@@ -161,73 +207,23 @@
     }
     #bottomnav a.active { color: #FFC148; }
     #bottomnav svg { width: 26px; height: 26px; fill: currentColor; }
-
-    #api-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-    }
-    #api-overlay.hidden { display: none; }
-    #api-box {
-      background: white;
-      border-radius: 12px;
-      padding: 24px 20px;
-      width: 90%;
-      max-width: 360px;
-      font-family: 'Nunito', sans-serif;
-    }
-    #api-box h2 {
-      font-size: 1rem;
-      color: #e84300;
-      margin-bottom: 8px;
-    }
-    #api-box p {
-      font-size: 0.75rem;
-      color: #555;
-      margin-bottom: 12px;
-      line-height: 1.4;
-    }
-    #api-input {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1.5px solid #ddd;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-family: 'Nunito', sans-serif;
-      margin-bottom: 12px;
-    }
-    #api-save {
-      width: 100%;
-      background: #e84300;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 10px;
-      font-family: 'Nunito', sans-serif;
-      font-size: 0.9rem;
-      font-weight: 700;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
-  <div id="api-overlay">
-    <div id="api-box">
-      <h2>API-sleutel invoeren</h2>
-      <p>Voer je Anthropic API-sleutel in. Die wordt alleen lokaal in je browser opgeslagen en nooit gedeeld.</p>
-      <input id="api-input" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
-      <button id="api-save">Opslaan en doorgaan</button>
-    </div>
-  </div>
 
   <div id="header"><h1>Spreekbuis</h1></div>
-  <div id="cloud"></div>
 
-  <div id="ai-panel">
+  <!-- Sectie 1: Woordwolk -->
+  <div id="section-cloud"></div>
+
+  <!-- Sectie 2: VibeCheck -->
+  <div id="section-vibe">
+    <div id="vibe-main"></div>
+    <div id="vibe-bars"></div>
+  </div>
+
+  <!-- Sectie 3: AI inzichten -->
+  <div id="section-ai">
     <div id="ai-header">
       <span id="ai-title">AI Inzichten</span>
       <span id="ai-updated"></span>
@@ -249,7 +245,6 @@
   </div>
 
   <div id="warning"></div>
-  <div id="debuglog" style="position:fixed;bottom:70px;left:0;right:0;max-height:120px;overflow-y:auto;background:rgba(0,0,0,0.8);color:#0f0;font-size:0.6rem;font-family:monospace;padding:4px 8px;z-index:998;display:none;"></div>
 
   <nav id="bottomnav" onclick="event.stopPropagation()">
     <a href="index.html" title="Home">
@@ -267,6 +262,7 @@
   </nav>
 
   <script>
+    // ── Stopwords ────────────────────────────────────────────────────────────
     var STOPWORDS = [
       'aan','af','al','als','ben','bij','dat','de','die','dit','door','dus',
       'een','en','er','even','geen','gewoon','haar','had','heb','heeft','hem',
@@ -274,21 +270,43 @@
       'kan','maar','me','mee','met','mij','mijn','nee','niet','nog','nu','of',
       'om','ons','ook','op','over','se','toch','te','tot','uit','van','via',
       'voor','want','was','wat','we','wel','werd','wie','wij','worden','wordt',
-      'ze','zich','zij','zijn','zo','zou','zelf','dan','naar','per','hun','iets',
-      'alles','echt','heel','daar','u','uw','had','hebben','dit','als','want'
+      'ze','zich','zij','zijn','zo','zou','zelf','dan','naar','per','iets',
+      'alles','echt','heel','daar','u','uw','hebben'
     ];
 
+    // ── VibeCheck config ─────────────────────────────────────────────────────
+    var COLORS = {
+      '-3': '#444444', '-2': '#888888', '-1': '#c8c8c8',
+       '0': '#4caf50',
+       '1': '#ff8a80',  '2': '#e53935',  '3': '#8b0000'
+    };
+    var RED_WORDS  = ['fascist','fascisten','hufter','hufters','gek','idioot',
+                      'idioten','leugenaar','leugenaars','racist','racisten',
+                      'opruier','opruiers'];
+    var GREY_WORDS = ['saai','zinloos','gedoe','onzin','maakt niet uit','boeit me niet'];
+    var VIBE_INTERVAL = 3000;
+    var MAX_BARS      = 20;
+
+    // ── Woordwolk config ─────────────────────────────────────────────────────
     var MAX_WORDS = 15;
-    var MIN_SIZE  = 13; // px
-    var MAX_SIZE  = 58; // px
+    var MIN_SIZE  = 13;
+    var MAX_SIZE  = 48;
 
-    var wordCounts  = {};
-    var wordOrder   = []; // insertion order for tie-breaking
-    var listening   = false;
-    var recognition = null;
+    // ── State ────────────────────────────────────────────────────────────────
+    var listening           = false;
+    var recognition         = null;
 
-    // AI-inzichten state
-    var CLAUDE_API_KEY      = localStorage.getItem('claude_api_key') || '';
+    // Woordwolk
+    var wordCounts          = {};
+    var wordOrder           = [];
+
+    // VibeCheck
+    var vibeIntervalId      = null;
+    var intervalTranscripts = [];
+    var baseScore           = 0;
+    var interimProcessed    = false;
+
+    // AI
     var fullTranscript      = '';
     var lastAnalyzedLength  = 0;
     var insights            = { actiepunten: [], wensen: [], oplossingen: [] };
@@ -296,61 +314,36 @@
     var lastUpdated         = null;
     var updatedTimerId      = null;
 
-    var cloud   = document.getElementById('cloud');
-    var warning = document.getElementById('warning');
+    // ── DOM refs ─────────────────────────────────────────────────────────────
+    var cloud    = document.getElementById('section-cloud');
+    var vibeMain = document.getElementById('vibe-main');
+    var vibeBars = document.getElementById('vibe-bars');
+    var warning  = document.getElementById('warning');
 
-    // Debug logger
-    var debugEl = document.getElementById('debuglog');
-    function dbg(msg) {
-      var line = document.createElement('div');
-      line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-      debugEl.appendChild(line);
-      debugEl.scrollTop = debugEl.scrollHeight;
-      console.log(msg);
-    }
-
-    // API-sleutel overlay
-    var overlay  = document.getElementById('api-overlay');
-    var apiInput = document.getElementById('api-input');
-    var apiSave  = document.getElementById('api-save');
-
-    if (CLAUDE_API_KEY) {
-      overlay.classList.add('hidden');
-    }
-
-    apiSave.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var key = apiInput.value.trim();
-      if (key) {
-        localStorage.setItem('claude_api_key', key);
-        CLAUDE_API_KEY = key;
-        overlay.classList.add('hidden');
-      }
-    });
-
+    // ── Speech Recognition ───────────────────────────────────────────────────
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      warning.textContent = 'Web Speech API niet ondersteund. Gebruik Chrome of Vivaldi.';
-    }
+    if (!SR) warning.textContent = 'Web Speech API niet ondersteund. Gebruik Chrome of Vivaldi.';
 
     document.addEventListener('click', function() {
-      if (overlay && !overlay.classList.contains('hidden')) return;
       if (!listening) startListening();
       else stopListening();
     });
 
     function startListening() {
-      listening = true;
+      listening           = true;
+      fullTranscript      = '';
+      lastAnalyzedLength  = 0;
+      lastUpdated         = null;
+      insights            = { actiepunten: [], wensen: [], oplossingen: [] };
+      intervalTranscripts = [];
+      baseScore           = 0;
+      interimProcessed    = false;
       warning.textContent = '';
-      fullTranscript = '';
-      lastAnalyzedLength = 0;
-      lastUpdated = null;
-      insights = { actiepunten: [], wensen: [], oplossingen: [] };
+      vibeBars.innerHTML  = '';
+      vibeMain.style.backgroundColor = COLORS['0'];
+      vibeMain.classList.add('listening');
 
-      if (!SR) {
-        warning.textContent = 'Web Speech API niet ondersteund.';
-        return;
-      }
+      if (!SR) { warning.textContent = 'Web Speech API niet ondersteund.'; return; }
 
       recognition = new SR();
       recognition.lang           = 'nl-NL';
@@ -359,8 +352,30 @@
 
       recognition.onresult = function(event) {
         for (var i = event.resultIndex; i < event.results.length; i++) {
+          var text = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            processText(event.results[i][0].transcript);
+            // Woordwolk + AI transcript
+            processText(text);
+            // VibeCheck
+            if (!interimProcessed) intervalTranscripts.push(text.toLowerCase());
+            interimProcessed = false;
+          } else {
+            // VibeCheck: interim direct reageren op sleutelwoorden
+            if (!interimProcessed) {
+              var tl = text.toLowerCase();
+              var rc = 0, gc = 0;
+              RED_WORDS.forEach(function(w)  { if (tl.indexOf(w) !== -1) rc++; });
+              GREY_WORDS.forEach(function(w) { if (tl.indexOf(w) !== -1) gc++; });
+              if (rc > 0 || gc > 0) {
+                interimProcessed = true;
+                baseScore += (rc - gc);
+                baseScore = Math.max(-3, Math.min(3, baseScore));
+                vibeMain.style.backgroundColor = COLORS[String(baseScore)];
+                addBar(baseScore);
+                clearInterval(vibeIntervalId);
+                vibeIntervalId = setInterval(recalculate, VIBE_INTERVAL);
+              }
+            }
           }
         }
       };
@@ -374,18 +389,147 @@
       };
 
       recognition.start();
-      if (aiIntervalId)  { clearInterval(aiIntervalId);  aiIntervalId  = null; }
-      if (updatedTimerId){ clearInterval(updatedTimerId); updatedTimerId = null; }
-      dbg('interval gestart');
-      aiIntervalId = setInterval(analyzeTranscript, 30000);
+      vibeIntervalId = setInterval(recalculate, VIBE_INTERVAL);
+      aiIntervalId   = setInterval(analyzeTranscript, 30000);
       startUpdatedTimer();
     }
 
     function stopListening() {
       listening = false;
-      if (recognition) { recognition.stop(); recognition = null; }
-      if (aiIntervalId)  { clearInterval(aiIntervalId);  aiIntervalId  = null; }
-      if (updatedTimerId){ clearInterval(updatedTimerId); updatedTimerId = null; }
+      vibeMain.classList.remove('listening');
+      if (recognition)    { recognition.stop(); recognition = null; }
+      if (vibeIntervalId) { clearInterval(vibeIntervalId); vibeIntervalId = null; }
+      if (aiIntervalId)   { clearInterval(aiIntervalId);   aiIntervalId   = null; }
+      if (updatedTimerId) { clearInterval(updatedTimerId); updatedTimerId = null; }
+      vibeMain.style.backgroundColor = COLORS['0'];
+    }
+
+    // ── VibeCheck ────────────────────────────────────────────────────────────
+    function recalculate() {
+      var intervalText = intervalTranscripts.join(' ');
+      intervalTranscripts = [];
+      var redCount = 0, greyCount = 0;
+      RED_WORDS.forEach(function(w)  { if (intervalText.indexOf(w) !== -1) redCount++;  });
+      GREY_WORDS.forEach(function(w) { if (intervalText.indexOf(w) !== -1) greyCount++; });
+      if (redCount > 0 || greyCount > 0) {
+        baseScore += (redCount - greyCount);
+      } else {
+        if (baseScore > 0) baseScore--;
+        else if (baseScore < 0) baseScore++;
+      }
+      baseScore = Math.max(-3, Math.min(3, baseScore));
+      vibeMain.style.backgroundColor = COLORS[String(baseScore)];
+      addBar(baseScore);
+    }
+
+    function addBar(score) {
+      var bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.backgroundColor = COLORS[String(score)];
+      vibeBars.insertBefore(bar, vibeBars.firstChild);
+      if (vibeBars.children.length > MAX_BARS) vibeBars.removeChild(vibeBars.lastChild);
+    }
+
+    // ── Woordwolk ────────────────────────────────────────────────────────────
+    function processText(text) {
+      fullTranscript += ' ' + text;
+      var words = text.toLowerCase()
+        .replace(/[^a-záéíóúàèìòùäëïöü\s]/g, '')
+        .split(/\s+/)
+        .filter(function(w) { return w.length >= 3 && STOPWORDS.indexOf(w) === -1; });
+      words.forEach(function(word) { if (word) addWord(word); });
+    }
+
+    function addWord(word) {
+      var isNew = !wordCounts[word];
+      if (isNew) { wordOrder.push(word); wordCounts[word] = 0; }
+      wordCounts[word]++;
+      if (Object.keys(wordCounts).length > MAX_WORDS) {
+        var victim = wordOrder[0];
+        for (var i = 0; i < wordOrder.length; i++) {
+          var w = wordOrder[i];
+          if (w !== word && wordCounts[w] <= wordCounts[victim]) victim = w;
+        }
+        delete wordCounts[victim];
+        wordOrder.splice(wordOrder.indexOf(victim), 1);
+        var el = document.querySelector('[data-word="' + victim + '"]');
+        if (el) cloud.removeChild(el);
+      }
+      renderWord(word, isNew);
+    }
+
+    function renderWord(pulseWord) {
+      var counts   = Object.keys(wordCounts).map(function(w) { return wordCounts[w]; });
+      var minC     = Math.min.apply(null, counts);
+      var maxC     = Math.max.apply(null, counts);
+      var el = document.querySelector('[data-word="' + pulseWord + '"]');
+      if (!el) {
+        el = document.createElement('span');
+        el.className = 'word';
+        el.setAttribute('data-word', pulseWord);
+        el.textContent = pulseWord;
+        cloud.appendChild(el);
+      }
+      var count    = wordCounts[pulseWord];
+      var fontSize = minC === maxC ? (MIN_SIZE + MAX_SIZE) / 2
+                                   : MIN_SIZE + (count - minC) / (maxC - minC) * (MAX_SIZE - MIN_SIZE);
+      el.style.fontSize = Math.round(fontSize) + 'px';
+      Object.keys(wordCounts).forEach(function(w) {
+        if (w === pulseWord) return;
+        var wEl = document.querySelector('[data-word="' + w + '"]');
+        if (!wEl) return;
+        var wSize = minC === maxC ? (MIN_SIZE + MAX_SIZE) / 2
+                                  : MIN_SIZE + (wordCounts[w] - minC) / (maxC - minC) * (MAX_SIZE - MIN_SIZE);
+        wEl.style.fontSize = Math.round(wSize) + 'px';
+      });
+      el.classList.remove('pulsing');
+      void el.offsetWidth;
+      el.classList.add('pulsing');
+      el.addEventListener('animationend', function() { el.classList.remove('pulsing'); }, { once: true });
+    }
+
+    // ── AI inzichten ─────────────────────────────────────────────────────────
+    function analyzeTranscript() {
+      var text = fullTranscript.trim();
+      if (text.length < 30 || text.length === lastAnalyzedLength) return;
+      lastAnalyzedLength = text.length;
+      var prompt = 'Je analyseert een transcriptie van een buurtgesprek.\n\n'
+        + 'Huidig transcript:\n' + text + '\n\n'
+        + 'Bestaande inzichten (voorkom duplicaten):\n' + JSON.stringify(insights) + '\n\n'
+        + 'Geef een VOLLEDIGE bijgewerkte JSON terug met alle inzichten (oud + nieuw, duplicaten samengevoegd):\n'
+        + '{"actiepunten":["..."],"wensen":["..."],"oplossingen":["..."]}\n\n'
+        + 'Regels:\n'
+        + '- Alleen wat écht gezegd is in het transcript\n'
+        + '- Maximaal 8 items per categorie\n'
+        + '- Nederlands, beknopt (max 6 woorden per item)\n'
+        + '- Geen duplicaten of herformuleringen van hetzelfde punt\n'
+        + '- Geef alleen de JSON terug, geen uitleg';
+      fetch('https://spreekbuis-proxy.koos-4a1.workers.dev', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 512,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var responseText = data.content && data.content[0] && data.content[0].text;
+        if (!responseText) return;
+        var match = responseText.match(/\{[\s\S]*\}/);
+        if (!match) return;
+        var parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed.actiepunten)) insights.actiepunten = parsed.actiepunten;
+        if (Array.isArray(parsed.wensen))      insights.wensen      = parsed.wensen;
+        if (Array.isArray(parsed.oplossingen)) insights.oplossingen = parsed.oplossingen;
+        lastUpdated = Date.now();
+        renderInsights();
+      })
+      .catch(function(err) {
+        warning.textContent = 'AI fout: ' + err;
+        setTimeout(function() { warning.textContent = ''; }, 5000);
+      });
     }
 
     function renderInsights() {
@@ -405,52 +549,6 @@
       });
     }
 
-    function analyzeTranscript() {
-      var text = fullTranscript.trim();
-      dbg('analyze: len=' + text.length + ' last=' + lastAnalyzedLength);
-      if (text.length < 30 || text.length === lastAnalyzedLength) { dbg('overgeslagen'); return; }
-      lastAnalyzedLength = text.length;
-
-      var prompt = 'Je analyseert een transcriptie van een buurtgesprek.\n\n'
-        + 'Huidig transcript:\n' + text + '\n\n'
-        + 'Bestaande inzichten (voorkom duplicaten):\n' + JSON.stringify(insights) + '\n\n'
-        + 'Geef een VOLLEDIGE bijgewerkte JSON terug met alle inzichten (oud + nieuw, duplicaten samengevoegd):\n'
-        + '{"actiepunten":["..."],"wensen":["..."],"oplossingen":["..."]}\n\n'
-        + 'Regels:\n'
-        + '- Alleen wat écht gezegd is in het transcript\n'
-        + '- Maximaal 8 items per categorie\n'
-        + '- Nederlands, beknopt (max 6 woorden per item)\n'
-        + '- Geen duplicaten of herformuleringen van hetzelfde punt\n'
-        + '- Geef alleen de JSON terug, geen uitleg';
-
-      fetch('https://spreekbuis-proxy.koos-4a1.workers.dev', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 512,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        dbg('AI resp: ' + JSON.stringify(data).substring(0, 100));
-        var responseText = data.content && data.content[0] && data.content[0].text;
-        if (!responseText) { dbg('geen text in response'); return; }
-        var match = responseText.match(/\{[\s\S]*\}/);
-        if (!match) return;
-        var parsed = JSON.parse(match[0]);
-        if (Array.isArray(parsed.actiepunten)) insights.actiepunten = parsed.actiepunten;
-        if (Array.isArray(parsed.wensen))      insights.wensen      = parsed.wensen;
-        if (Array.isArray(parsed.oplossingen)) insights.oplossingen = parsed.oplossingen;
-        lastUpdated = Date.now();
-        renderInsights();
-      })
-      .catch(function(err) { dbg('fetch fout: ' + err); warning.textContent = 'AI fout: ' + err; setTimeout(function(){ warning.textContent=''; }, 5000); });
-    }
-
     function startUpdatedTimer() {
       updatedTimerId = setInterval(function() {
         var el = document.getElementById('ai-updated');
@@ -459,93 +557,6 @@
         var secs = Math.round((Date.now() - lastUpdated) / 1000);
         el.textContent = 'bijgewerkt ' + secs + 's geleden';
       }, 1000);
-    }
-
-    function processText(text) {
-      fullTranscript += ' ' + text;
-      var words = text.toLowerCase()
-        .replace(/[^a-záéíóúàèìòùäëïöü\s]/g, '')
-        .split(/\s+/)
-        .filter(function(w) {
-          return w.length >= 3 && STOPWORDS.indexOf(w) === -1;
-        });
-
-      words.forEach(function(word) {
-        if (word) addWord(word);
-      });
-    }
-
-    function addWord(word) {
-      var isNew = !wordCounts[word];
-
-      if (isNew) {
-        wordOrder.push(word);
-        wordCounts[word] = 0;
-      }
-
-      wordCounts[word]++;
-
-      // Als er meer dan MAX_WORDS unieke woorden zijn:
-      // verwijder het woord met de laagste score (bij gelijkstand: het oudste)
-      var keys = Object.keys(wordCounts);
-      if (keys.length > MAX_WORDS) {
-        var victim = wordOrder[0]; // oudste als standaard
-        for (var i = 0; i < wordOrder.length; i++) {
-          var w = wordOrder[i];
-          if (w !== word && wordCounts[w] <= wordCounts[victim]) {
-            victim = w;
-          }
-        }
-        // verwijder slachtoffer
-        delete wordCounts[victim];
-        wordOrder.splice(wordOrder.indexOf(victim), 1);
-        var el = document.querySelector('[data-word="' + victim + '"]');
-        if (el) cloud.removeChild(el);
-      }
-
-      renderWord(word, isNew);
-    }
-
-    function renderWord(pulseWord, isNew) {
-      var counts  = Object.keys(wordCounts).map(function(w) { return wordCounts[w]; });
-      var minC    = Math.min.apply(null, counts);
-      var maxC    = Math.max.apply(null, counts);
-
-      // Maak of update het element van het woord
-      var el = document.querySelector('[data-word="' + pulseWord + '"]');
-      if (!el) {
-        el = document.createElement('span');
-        el.className = 'word';
-        el.setAttribute('data-word', pulseWord);
-        el.textContent = pulseWord;
-        cloud.appendChild(el);
-      }
-
-      // Pas lettergrootte aan op basis van frequentie
-      var count    = wordCounts[pulseWord];
-      var fontSize = minC === maxC
-        ? (MIN_SIZE + MAX_SIZE) / 2
-        : MIN_SIZE + (count - minC) / (maxC - minC) * (MAX_SIZE - MIN_SIZE);
-      el.style.fontSize = Math.round(fontSize) + 'px';
-
-      // Update ook de grootte van alle andere woorden
-      Object.keys(wordCounts).forEach(function(w) {
-        if (w === pulseWord) return;
-        var wEl = document.querySelector('[data-word="' + w + '"]');
-        if (!wEl) return;
-        var wSize = minC === maxC
-          ? (MIN_SIZE + MAX_SIZE) / 2
-          : MIN_SIZE + (wordCounts[w] - minC) / (maxC - minC) * (MAX_SIZE - MIN_SIZE);
-        wEl.style.fontSize = Math.round(wSize) + 'px';
-      });
-
-      // Puls het woord 3 keer
-      el.classList.remove('pulsing');
-      void el.offsetWidth; // herstart animatie
-      el.classList.add('pulsing');
-      el.addEventListener('animationend', function() {
-        el.classList.remove('pulsing');
-      }, { once: true });
     }
   </script>
 </body>
